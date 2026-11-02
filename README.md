@@ -14,8 +14,9 @@ WorkBuddy「Buddy 加油站」的每日自动化：**签到领积分**、**派�
 > | 结果 | Actions 日志 / 飞书卡片 | 直接回写表格 / 飞书卡片 |
 >
 > 两种版本的 token 都由本机导出一次（[第 4 步](#第-4-步导出登录凭证二选一)）：
-> 装了 Python 就跑 `refresh_token.py`；没装 Python 直接下载仓库里的
-> **`refresh_token.exe`** 双击运行，无需任何环境。
+> 装了 Python 就跑 `refresh_token.py`（零第三方依赖，仅需 Python 3.8+）。
+> 没装 Python 时可在[原上游仓库](https://github.com/FXmonkey/workbuddy_auto_checkin)
+> 下载 `refresh_token.exe` 双击运行，本仓库不收录未签名的二进制文件。
 
 ## 特性
 
@@ -58,7 +59,7 @@ WorkBuddy「Buddy 加油站」的每日自动化：**签到领积分**、**派�
 - 一个 GitHub 账号
 - 一台装过 WorkBuddy **并且登录过**的电脑（只在配置时用一次）
 - 一个飞书群（自己建一个只有自己的也行），用来收消息
-- 电脑上有 Python 3.8+（没有也行——用仓库里的 `refresh_token.exe`，见第 4 步）
+- 电脑上有 Python 3.8+（没有也行——用[原上游仓库](https://github.com/FXmonkey/workbuddy_auto_checkin)提供的 `refresh_token.exe`，见第 4 步）
 
 ### 容易搞混的一点，先说清楚
 
@@ -77,10 +78,14 @@ WorkBuddy「Buddy 加油站」的每日自动化：**签到领积分**、**派�
 
 **方式 B：新建仓库再上传**
 
-1. GitHub 右上角 **+** → **New repository**，名字随便填，选 **Private**，点 **Create repository**
+1. GitHub 右上角 **+** → **New repository**，名字随便填，点 **Create repository**
 2. 仓库页点 **Add file → Upload files**
 3. 把整个项目文件夹拖进去（**必须包含 `.github` 这个文件夹**，它是定时任务的定义），点 **Commit changes**
 
+> **可见性请选 Public。** GitHub 免费账户下，**私有仓库的 `schedule` 触发不会运行**——只有公开仓库或 Pro 计划才会跑定时任务（社区已反复确认，`push` 与 `workflow_dispatch` 正常但 `schedule` 恒为 0 次运行）。本仓库不含任何凭据（token 只进 Secret），公开无安全顾虑。
+>
+> 公开仓库另有一条规则：连续 60 天无提交活动会被自动停用 `schedule`，且**停用是静默的**（不产生失败的运行，只是不再触发）。本仓库的 workflow 内置了 heartbeat 空提交步骤，每次运行都会写回一次提交，从而保证 schedule 长期存活。
+>
 > 两种方式的取舍：Fork 少一步，但要多做上面第 4 小步的启用；新建仓库没有这个坑，但网页上传时容易漏掉 `.github` 这种以点开头的文件夹。二选一即可。
 
 ### 第 2 步：把脚本下载到自己电脑
@@ -100,7 +105,7 @@ WorkBuddy「Buddy 加油站」的每日自动化：**签到领积分**、**派�
 
 **先选运行形式：**
 
-- **没装 Python？** 直接双击仓库里的 **`refresh_token.exe`**（用法与 `.py` 完全一致，把下面命令里的 `python refresh_token.py` 换成 `refresh_token.exe` 即可）。首次运行 Windows SmartScreen 可能拦截，点 **更多信息 → 仍要运行**。
+- **没装 Python？** 从[原上游仓库](https://github.com/FXmonkey/workbuddy_auto_checkin)下载 **`refresh_token.exe`** 双击运行（用法与 `.py` 完全一致，把下面命令里的 `python refresh_token.py` 换成 `refresh_token.exe` 即可）。首次运行 Windows SmartScreen 可能拦截，点 **更多信息 → 仍要运行**。
 - 装了 Python：继续往下按命令操作（脚本零第三方依赖，只需 Python 3.8+）。
 
 **方式 A：电脑上装了 gh CLI —— 自动写入，最省事**
@@ -222,13 +227,29 @@ POST /v2/activity/growth/buddy/travel/depart     派出一趟
 ```text
 wb_auto.py                    云端执行主体：签到、领奖、派出、推送
 refresh_token.py              本机一次性操作：导出 token / 写入 Secret
-refresh_token.exe             上者的免 Python 打包版（Windows x64，双击即用）
 .github/workflows/daily.yml   cron 定义与执行步骤
 wps/                          WPS 金山文档版（脚本 + 说明，见 wps/README.md）
 ```
 
-> `refresh_token.exe` 由 `refresh_token.py` 经 PyInstaller 打包（零第三方依赖），
-> 每次改动 `.py` 后需要重新构建。未做代码签名，SmartScreen 的提示属正常现象。
+> 免 Python 的 `refresh_token.exe` 打包版见[原上游仓库](https://github.com/FXmonkey/workbuddy_auto_checkin)；
+> 它由 `refresh_token.py` 经 PyInstaller 打包，未做代码签名，SmartScreen 的提示属正常现象。
+> 本仓库不收录未签名的二进制文件。
+
+## 本机实测补充（Windows / WorkBuddy 桌面端）
+
+以下为在真实环境跑过一遍得到的结论，与上文接口清单一致：
+
+- **域名**：`copilot.tencent.com`、`www.workbuddy.cn`、`www.codebuddy.cn` 三个域名的签到与猫猫接口**全部可用**。
+  若 `copilot.tencent.com` 不可达，用环境变量 `WB_ENDPOINT` 覆盖即可。
+- **token 有效期**：JWT `exp` 实测约 **30 天**（`expiresIn` 2419200 ≈ 28 天，签发时刻略有浮动）。
+  每次运行 `refresh_token.py` 会解出当前登录态里的最新信封，是**新签发**的 token，与上一次存下的不完全相同，均可用。
+- **猫猫派单 403 `no active buddy`**：说明账号尚未开通 Buddy 角色
+  （`/api/v1/copilot/account/buddyone/status` 返回 `joined: false`、
+  `/v2/activity/growth/buddy/info` 返回 `buddy: null`）。
+  这是**账号状态而非脚本缺陷**，签到结论不受影响；开通 Buddy 后该模块自动生效。
+- **接口路径**：`app.asar` 中仅字面包含 `/v2/activity/growth/buddy/info` 与
+  `/activity/growth/buddy/travel/claim`；`travel/status`、`travel/config`、`travel/depart`
+  为运行时拼装，但其存在已由服务端 200 响应证实。
 
 ## 安全设计
 
@@ -237,6 +258,7 @@ wps/                          WPS 金山文档版（脚本 + 说明，见 wps/RE
 - 明文 token 不进入命令行、环境变量或日志；`--gh-repo` 模式下经 stdin 交给 `gh`
 - 所有响应打印前过 `masked()` 脱敏，长字符串仅保留首尾若干字符
 - 写操作仅在网络异常时有限重试，依赖服务端幂等避免重复提交
+- `workflow` 内的 heartbeat 步骤只做**空提交**，不写入任何凭据或运行数据
 
 ## 常见问题
 

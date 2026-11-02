@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # heartbeat 空提交用：防止公开仓库 60 天无活动被自动停用 schedule
 
 concurrency:
   group: wb-daily
@@ -31,6 +31,10 @@ jobs:
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
+        with:
+          # heartbeat 需要写回仓库
+          fetch-depth: 1
+          persist-credentials: true
 
       - name: 定位 Python 解释器
         id: py
@@ -84,3 +88,15 @@ jobs:
           else
             echo "- 未产出结论文案，请查看上方日志" >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      # heartbeat：给仓库制造活动，避免公开仓库连续 60 天无提交后
+      # GitHub 自动停用 schedule 触发（停用是静默的，不会产生失败的运行）。
+      # [skip ci] 后缀确保这个提交不会反过来触发本 workflow。
+      - name: 心跳提交（保持 schedule 存活）
+        if: always()
+        run: |
+          set -uo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: scheduled keepalive [skip ci]"
+          git push
