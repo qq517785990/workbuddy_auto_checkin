@@ -118,6 +118,19 @@ python refresh_token.py --gh-repo 你的用户名/workbuddy_auto_checkin
 
 脚本会解密并直接把 token 写进你仓库的 Secret，屏幕显示「已写入」即可跳到第 5 步。
 
+> **自动写入的三条通道（脚本会自动按可靠性依次尝试）**
+>
+> | 通道 | 前提 | 说明 |
+> | --- | --- | --- |
+> | **API 直写（首选）** | 环境变量 `GH_TOKEN` 有 `repo` 权限 + 已装 `PyNaCl` | 走 GitHub REST API，libsodium sealed box 加密，token 只经 stdin 传入 |
+> | gh CLI | 装了 `gh` 且 `gh auth login` 过 | 脚本会先做**自检**再写入（见下） |
+> | 手动粘贴 | 无 | 脚本打印带起止标记的 token，自己复制到 Secret |
+>
+> **踩过的坑（已修复）**：`gh secret set --body -` 在部分 gh 版本（实测 Windows 上的 gh 2.103.3）
+> 会把 `-` 当成**字面量值**而不是「从 stdin 读」——命令返回成功，Secret 里却是一个 `-`，
+> 云端运行时报 `401 认证被拒`，且本地毫无线索。本仓库的脚本已加自检：先用一条无害的临时变量
+> 探针验证 stdin 通路，读回值不等于探针就判定该 gh 版本不可用，转而走 API 直写或手动粘贴。
+
 **方式 B：没装 gh CLI —— 先打印出来，再手动粘贴**
 
 在项目文件夹里运行：
